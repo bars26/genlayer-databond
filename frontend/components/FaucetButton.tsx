@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getAddress } from "viem";
 import { Droplets, Loader2 } from "lucide-react";
 import { useWallet } from "@/lib/genlayer/wallet";
 import { getStudioUrl } from "@/lib/genlayer/client";
@@ -19,7 +20,9 @@ export function FaucetButton() {
       const res = await fetch(getStudioUrl(), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "sim_fundAccount", params: [address, 50 * 1e18] }),
+        // Studio keys faucet balances by the checksummed address: funding the lowercase form
+        // (what MetaMask returns) succeeds but the GEN never shows up on the wallet.
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "sim_fundAccount", params: [getAddress(address), 50 * 1e18] }),
       });
       const body = await res.json();
       if (body.error) throw new Error(body.error.message);

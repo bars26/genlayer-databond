@@ -145,15 +145,26 @@ export function useBondWrite() {
               });
             }
             break;
-          case "challenge":
+          case "challenge": {
+            // Re-read right before sending: someone may have challenged it in the meantime.
+            const fresh = await contract.getBond(vars.id);
+            if (fresh.state !== "active") {
+              throw new DataBondError({ kind: "contract_revert", phase: "estimate", message: `This bond is now ${fresh.state}; nothing was sent.`, hint: "The list was refreshed. Pick another bond or wait for the ruling." });
+            }
             result = await contract.challenge(vars.id, vars.reason, vars.value, onProgress);
             break;
+          }
           case "adjudicate":
             result = await contract.adjudicate(vars.id, onProgress);
             break;
-          case "contest":
+          case "contest": {
+            const fresh = await contract.getBond(vars.id);
+            if (fresh.state !== "ruled" || fresh.contested) {
+              throw new DataBondError({ kind: "contract_revert", phase: "estimate", message: "This ruling can no longer be contested; nothing was sent.", hint: "The list was refreshed." });
+            }
             result = await contract.contest(vars.id, vars.value, onProgress);
             break;
+          }
           case "settle":
             result = await contract.settle(vars.id, onProgress);
             break;
@@ -172,6 +183,7 @@ export function useBondWrite() {
         return { id, txHash: result.txHash, kind: vars.kind };
       } catch (err) {
         const e = classifyError(err, "send");
+        if (contract && vars.kind !== "post") mergeFreshBond(qc, contract, vars.id);
         updateTx(logId, {
           state: "failed",
           txHash: e.txHash,

@@ -19,16 +19,35 @@ export interface TxResult {
   receipt: TransactionReceipt;
 }
 
-/** Pull the contract-execution outcome (and any revert text) out of a consensus receipt. */
-export function executionOutcome(receipt: any): { result: string; message: string } {
+/**
+ * Pull the contract-execution outcome out of a consensus receipt.
+ *   result.status "rollback" -> the contract raised; payload is its message.
+ *   result.status "return"   -> payload.readable is the JSON-encoded return value.
+ */
+export function executionOutcome(receipt: any): { result: string; message: string; returned: unknown } {
   const lr = receipt?.consensus_data?.leader_receipt;
   const first = Array.isArray(lr) ? lr[0] : lr;
   const result = String(first?.execution_result ?? receipt?.execution_result ?? "UNKNOWN");
+  const r = first?.result ?? {};
+  let returned: unknown = undefined;
+  if (r?.status === "return") {
+    const readable = r?.payload?.readable;
+    try {
+      returned = typeof readable === "string" ? JSON.parse(readable) : readable;
+    } catch {
+      returned = readable;
+    }
+  }
   const g = first?.genvm_result ?? {};
-  const message = [g.error_description, g.stderr, Array.isArray(g.raw_error?.causes) ? g.raw_error.causes.join(",") : ""]
+  const message = [
+    r?.status === "rollback" && typeof r?.payload === "string" ? r.payload : "",
+    g.error_description,
+    g.stderr,
+    Array.isArray(g.raw_error?.causes) ? g.raw_error.causes.join(",") : "",
+  ]
     .filter((s) => typeof s === "string" && s.trim().length > 0)
     .join(" | ");
-  return { result, message };
+  return { result, message, returned };
 }
 
 const WRITE_EFFECT: Record<string, string> = {
@@ -132,13 +151,25 @@ class DataBond {
     const status = String(receipt?.statusName ?? receipt?.status_name ?? "ACCEPTED");
     const outcome = executionOutcome(receipt);
     onProgress?.({ step: "accepted", txHash, message: `Consensus status: ${status}` });
+    // Payable methods refuse by refunding and returning "REFUNDED: <reason>" instead of reverting,
+    // because GenLayer keeps a reverted call's value in the contract.
+    if (typeof outcome.returned === "string" && outcome.returned.startsWith("REFUNDED:")) {
+      throw new DataBondError({
+        kind: "contract_revert",
+        phase: "verify",
+        txHash,
+        message: `The contract refused this call and is sending your GEN back: ${outcome.returned.slice(9).trim()}`,
+        hint: "Nothing changed on the bond. The refund lands in your wallet once the transaction finalizes.",
+        detail: String(outcome.returned),
+      });
+    }
     if (outcome.result === "ERROR") {
       throw new DataBondError({
         kind: "accepted_no_effect",
         phase: "verify",
         txHash,
         message: `The transaction was ACCEPTED, but the contract rejected the call, so ${WRITE_EFFECT[functionName] ?? "nothing changed"}.`,
-        hint: "Open the transaction in the explorer to see the contract's error message.",
+        hint: outcome.message ? `Contract message: ${outcome.message}` : "Open the transaction in the explorer for details.",
         detail: outcome.message || rawMessage(receipt?.result) || "execution_result: ERROR",
       });
     }

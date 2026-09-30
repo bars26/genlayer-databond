@@ -26,7 +26,7 @@ decided.
 
 **Live app:** [databond-bars26.vercel.app](https://databond-bars26.vercel.app). Reads need no wallet. Writes need MetaMask on
 GenLayer Studio (chain 61999); the **Test GEN** button funds your wallet from the Studio faucet.
-**Contract:** [`0xfCc592fcFcf0b4bDECCe66d94B9B18CAA6f6eB6e`](https://explorer-studio.genlayer.com/address/0xfCc592fcFcf0b4bDECCe66d94B9B18CAA6f6eB6e) on GenLayer Studio.
+**Contract:** [`0x3f0A10DE7cF2e4E6ad5874772dF197FD45e4B4BF`](https://explorer-studio.genlayer.com/address/0x3f0A10DE7cF2e4E6ad5874772dF197FD45e4B4BF) on GenLayer Studio.
 
 ## Verified live
 
@@ -81,12 +81,12 @@ Validators agree on a small JSON of coarse facts (reachable, open, file count, t
 | Payouts are integer arithmetic in the contract | No model decides who gets paid |
 | Statement and repository metadata are wrapped as untrusted data in the prompt; the challenger's reason is never shown to the model | Prompt injection from either party is contained |
 
-## Paying wallets on GenLayer: the part that is easy to get wrong
+## Two GenLayer money pitfalls, and how DataBond handles them
 
-`gl.get_contract_at(addr).emit_transfer(value=...)` sends an **internal** GenVM message. A wallet has no code to run, so on
-Studio that child transaction ends `NO_MAJORITY` with `value_credited: false`: the GEN leaves the contract and never
-arrives. The first deployment of this contract (`0x3db0C339…`) did exactly that. DataBond now pays through an
-**external** EVM message:
+**1. Paying a wallet needs an external message.** `gl.get_contract_at(addr).emit_transfer(value=...)` sends an
+*internal* GenVM message. A wallet has no code to run, so on Studio the child transaction ends `NO_MAJORITY` with
+`value_credited: false`: the GEN leaves the contract and never arrives. An early deployment of this contract
+(`0x3db0C339…`) did exactly that. DataBond pays through an *external* EVM message:
 
 ```python
 @gl.evm.contract_interface
@@ -97,17 +97,23 @@ class _Wallet:
 _Wallet(to).emit_transfer(value=u256(amount))  # EthSend with empty calldata
 ```
 
-Verified live: a 2 GEN withdrawal's transfer finalized with `value_credited: true` and the wallet went from 8 back to
-10 GEN (`scripts/probe-transfer.mjs`).
+**2. A reverted payable call keeps the caller's GEN.** GenLayer credits a call's value to the contract even when the call
+reverts, and the revert also undoes any refund the contract tried to make. Verified live: a reverted 1 GEN challenge left
+the sender at 4 GEN and the contract 1 GEN richer. So DataBond's payable methods (`post_bond`, `challenge`, `contest`)
+**never revert on a validation failure**: they send the value straight back and return `"REFUNDED: <reason>"`, leaving
+the bond untouched. The UI reads that return value from the receipt and says the call was refused and the GEN is on its
+way back. The demo includes a deliberately under-staked challenge that is refunded.
+
+Both are reproducible with `scripts/probe-transfer.mjs` and `scripts/demo.mjs`.
 
 ## Contract API
 
 | Method | Kind | What it does |
 |---|---|---|
-| `post_bond(paper, statement, repository)` | payable write | Bond ≥ 1 GEN behind a statement; probes the repository first |
-| `challenge(bond_id, reason)` | payable write | Stake ≥ 10% of the bond against the statement |
+| `post_bond(paper, statement, repository)` | payable write | Bond ≥ 1 GEN behind a statement; probes the repository first. Returns the bond id or `REFUNDED: …` |
+| `challenge(bond_id, reason)` | payable write | Stake ≥ 10% of the bond against the statement. Returns `challenged` or `REFUNDED: …` |
 | `adjudicate(bond_id)` | write | Consensus ruling, anyone can call |
-| `contest(bond_id)` | payable write | Losing side pays for one independent re-ruling within 10 minutes |
+| `contest(bond_id)` | payable write | Losing side pays for one independent re-ruling within 10 minutes. Returns the new verdict or `REFUNDED: …` |
 | `settle(bond_id)` | write | Pays out; the bond survives on Available, closes otherwise |
 | `withdraw(bond_id)` | write | Owner takes an unchallenged bond back |
 | `get_bond`, `get_history`, `list_bonds`, `list_bonds_by_owner`, `get_stats`, `is_backed`, `contest_window_seconds` | views | |
@@ -126,14 +132,18 @@ Lessons carried over from earlier projects:
   re-read.
 - **ACCEPTED is not success.** The receipt's `execution_result` is checked, so a reverted call is reported as reverted, with
   the hash and the contract's message.
-- **Distinct errors** for wallet rejection, wrong network, rate limit, unreachable RPC, revert and timeout, with the raw
-  error kept.
+- **Distinct errors** for wallet rejection, wrong network, insufficient GEN, rate limit, unreachable RPC, contract refusal
+  (with the contract's own message) and timeout, with the raw error kept.
+- **Payable writes re-read the bond right before sending**, so a bond challenged by someone else a moment ago is caught
+  before any GEN leaves the wallet.
+- **The Studio faucet needs the checksummed address.** Funding the lowercase form that MetaMask returns succeeds but the
+  GEN never appears on the wallet; the Test GEN button checksums it first.
 
 ## Tests
 
-29 direct-mode tests (`tests/direct/test_data_bond.py`): posting and URL forms for all three sources, the minimum bond and
+30 direct-mode tests (`tests/direct/test_data_bond.py`): posting and URL forms for all three sources, the minimum bond and
 stake, self-challenge, second challenger, every verdict path, deleted/empty records decided without the model, restricted
-records judged both ways, the non-enum LLM guard, settlement arithmetic for all three outcomes, early settlement by the
+records judged both ways, the non-enum LLM guard, refused payable calls that refund and change nothing, settlement arithmetic for all three outcomes, early settlement by the
 losing side, successful and failed contests, the contest window, withdrawal, and the views.
 
 ```shell

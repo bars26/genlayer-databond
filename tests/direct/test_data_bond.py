@@ -109,8 +109,7 @@ def test_post_bond_requires_at_least_one_gen(direct_vm, direct_deploy, direct_al
     contract = direct_deploy(CONTRACT_PATH)
     _setup(direct_vm)
     direct_vm.value = GEN - 1
-    with direct_vm.expect_revert("A bond must be at least 1 GEN"):
-        contract.post_bond(PAPER, STATEMENT, ZENODO_URL)
+    assert contract.post_bond(PAPER, STATEMENT, ZENODO_URL).startswith("REFUNDED: A bond must be at least 1 GEN")
 
 
 def test_post_bond_rejects_unsupported_repositories(direct_vm, direct_deploy, direct_alice):
@@ -118,18 +117,15 @@ def test_post_bond_rejects_unsupported_repositories(direct_vm, direct_deploy, di
     contract = direct_deploy(CONTRACT_PATH)
     direct_vm.value = 5 * GEN
     for url in ("https://example.com/data", "http://zenodo.org/records/1", "https://osf.io/abcde"):
-        with direct_vm.expect_revert("repository must be a Zenodo record"):
-            contract.post_bond(PAPER, STATEMENT, url)
+        assert contract.post_bond(PAPER, STATEMENT, url).startswith("REFUNDED: repository must be a Zenodo record")
 
 
 def test_post_bond_validates_the_statement(direct_vm, direct_deploy, direct_alice):
     direct_vm.sender = direct_alice
     contract = direct_deploy(CONTRACT_PATH)
     direct_vm.value = 5 * GEN
-    with direct_vm.expect_revert("statement must be the paper's data-availability statement"):
-        contract.post_bond(PAPER, "data on zenodo", ZENODO_URL)
-    with direct_vm.expect_revert("paper must be a title or DOI"):
-        contract.post_bond("", STATEMENT, ZENODO_URL)
+    assert contract.post_bond(PAPER, "data on zenodo", ZENODO_URL).startswith("REFUNDED: statement must be the paper's data-availability statement")
+    assert contract.post_bond("", STATEMENT, ZENODO_URL).startswith("REFUNDED: paper must be a title or DOI")
 
 
 def test_post_bond_refuses_a_repository_that_does_not_resolve(direct_vm, direct_deploy, direct_alice):
@@ -139,8 +135,7 @@ def test_post_bond_refuses_a_repository_that_does_not_resolve(direct_vm, direct_
     direct_vm.clear_mocks()
     _mock_json(direct_vm, ZENODO_API_RE, None, status=404)
     direct_vm.value = 5 * GEN
-    with direct_vm.expect_revert("Could not load the repository from its public API"):
-        contract.post_bond(PAPER, STATEMENT, ZENODO_URL)
+    assert contract.post_bond(PAPER, STATEMENT, ZENODO_URL).startswith("REFUNDED: Could not load the repository from its public API")
     assert contract.list_bonds() == []
 
 
@@ -187,16 +182,14 @@ def test_challenge_requires_ten_percent_stake(direct_vm, direct_deploy, direct_a
     contract, bond_id = _post(direct_vm, direct_deploy, direct_alice)
     direct_vm.sender = direct_bob
     direct_vm.value = GEN - 1  # bond is 10 GEN, so 1 GEN is needed
-    with direct_vm.expect_revert("A challenge must stake at least"):
-        contract.challenge(bond_id, "missing data")
+    assert contract.challenge(bond_id, "missing data").startswith("REFUNDED: A challenge must stake at least")
 
 
 def test_owner_cannot_challenge_own_bond(direct_vm, direct_deploy, direct_alice):
     contract, bond_id = _post(direct_vm, direct_deploy, direct_alice)
     direct_vm.sender = direct_alice
     direct_vm.value = 2 * GEN
-    with direct_vm.expect_revert("The bond owner cannot challenge their own bond"):
-        contract.challenge(bond_id, "self")
+    assert contract.challenge(bond_id, "self").startswith("REFUNDED: The bond owner cannot challenge their own bond")
 
 
 def test_challenge_blocks_a_second_challenger(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
@@ -205,8 +198,7 @@ def test_challenge_blocks_a_second_challenger(direct_vm, direct_deploy, direct_a
     assert contract.get_bond(bond_id).state == "challenged"
     direct_vm.sender = direct_charlie
     direct_vm.value = 2 * GEN
-    with direct_vm.expect_revert("Only an active bond can be challenged"):
-        contract.challenge(bond_id, "me too")
+    assert contract.challenge(bond_id, "me too").startswith("REFUNDED: Only an active bond can be challenged")
 
 
 # --- adjudication -------------------------------------------------------------
@@ -325,15 +317,12 @@ def test_contest_rules(direct_vm, direct_deploy, direct_alice, direct_bob, direc
     contract, bond_id = _ruled(direct_vm, direct_deploy, direct_alice, direct_bob, "AVAILABLE")
     direct_vm.value = 2 * GEN
     direct_vm.sender = direct_alice
-    with direct_vm.expect_revert("The owner cannot contest a ruling in their favour"):
-        contract.contest(bond_id)
+    assert contract.contest(bond_id).startswith("REFUNDED: The owner cannot contest a ruling in their favour")
     direct_vm.sender = direct_charlie
-    with direct_vm.expect_revert("Only the bond owner or the challenger can contest"):
-        contract.contest(bond_id)
+    assert contract.contest(bond_id).startswith("REFUNDED: Only the bond owner or the challenger can contest")
     direct_vm.sender = direct_bob
     direct_vm.value = GEN
-    with direct_vm.expect_revert("A contest must stake at least as much as the challenge"):
-        contract.contest(bond_id)
+    assert contract.contest(bond_id).startswith("REFUNDED: A contest must stake at least as much as the challenge")
 
 
 def test_successful_contest_flips_the_payout(direct_vm, direct_deploy, direct_alice, direct_bob):
@@ -359,9 +348,8 @@ def test_failed_contest_forfeits_the_contest_stake(direct_vm, direct_deploy, dir
     contract.contest(bond_id)
     direct_vm.value = 0
     assert contract.get_bond(bond_id).contest_succeeded is False
-    with direct_vm.expect_revert("A ruling can only be contested once"):
-        direct_vm.value = 2 * GEN
-        contract.contest(bond_id)
+    direct_vm.value = 2 * GEN
+    assert contract.contest(bond_id).startswith("REFUNDED: A ruling can only be contested once")
     direct_vm.value = 0
     contract.settle(bond_id)
     settled = contract.get_history(bond_id)[-1]
@@ -373,8 +361,7 @@ def test_contest_window_closes(direct_vm, direct_deploy, direct_alice, direct_bo
     _expire_window(contract, bond_id)
     direct_vm.sender = direct_alice
     direct_vm.value = 2 * GEN
-    with direct_vm.expect_revert("The contest window has closed"):
-        contract.contest(bond_id)
+    assert contract.contest(bond_id).startswith("REFUNDED: The contest window has closed")
 
 
 # --- withdrawal ---------------------------------------------------------------
@@ -410,3 +397,20 @@ def test_views(direct_vm, direct_deploy, direct_alice, direct_bob):
     assert contract.contest_window_seconds() == 600
     with direct_vm.expect_revert("No bond with id bond_9"):
         contract.get_bond("bond_9")
+
+
+def test_refused_payable_call_changes_nothing(direct_vm, direct_deploy, direct_alice, direct_bob):
+    # GenLayer credits a call's value to the contract even if the call reverts, so
+    # payable methods refund and return instead of raising. State must be untouched.
+    contract, bond_id = _post(direct_vm, direct_deploy, direct_alice)
+    direct_vm.sender = direct_bob
+    direct_vm.value = GEN // 10  # below the 10% (1 GEN) minimum
+    result = contract.challenge(bond_id, "too cheap")
+    direct_vm.value = 0
+    assert result.startswith("REFUNDED: A challenge must stake at least")
+    bond = contract.get_bond(bond_id)
+    assert bond.state == "active"
+    assert int(bond.challenge_stake) == 0
+    assert [e["event"] for e in contract.get_history(bond_id)] == ["posted"]
+    _challenge(direct_vm, contract, bond_id, direct_bob)  # a valid challenge still works afterwards
+    assert contract.get_bond(bond_id).state == "challenged"

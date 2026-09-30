@@ -1,13 +1,13 @@
 {
- "contract": "0xfCc592fcFcf0b4bDECCe66d94B9B18CAA6f6eB6e",
- "owner": "0x264e5F87120DF639e577241875084B574f1BCb34",
- "challenger": "0x79e725496ab7bC64a31651EA82176f23Ab5Ba3f1",
+ "contract": "0x3f0A10DE7cF2e4E6ad5874772dF197FD45e4B4BF",
+ "owner": "0xF730fc4d5BeaFFcBD0F0D1c394d37B8CDBFce6D7",
+ "challenger": "0xfC5e03f4f6dc837E0f9e93fb6Aa9aC3249a7a9bc",
  "ids": {
-  "honest": "bond_1",
-  "overclaim": "bond_2",
-  "mismatch": "bond_3",
-  "restricted-open-claim": "bond_4",
-  "restricted-honest": "bond_5"
+  "honest": "bond_0",
+  "overclaim": "bond_1",
+  "mismatch": "bond_2",
+  "restricted-open-claim": "bond_3",
+  "restricted-honest": "bond_4"
  },
  "verdicts": {
   "honest": "AVAILABLE",
@@ -21,185 +21,216 @@
    "who": "author",
    "call": "post_bond(\"Who benefits, who pays? Distributional , \"Contents: data/ - the cleaned, de-ident, \"https://zenodo.org/records/23041043\")",
    "value": "5",
-   "hash": "0x1b838684c2b0bb98e27096105451053f951ee55d5dcfedcadcf84dcb2f93feef",
+   "hash": "0x7855e0a2f00a49e4c39868d80dad5945f90cf30400cbeeb75c4303cb908e4a97",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "bond_0"
   },
   {
    "who": "author",
    "call": "post_bond(\"DEMO statement (over-broad) for the NEV, \"All materials are openly available on Z, \"https://zenodo.org/records/23041043\")",
    "value": "5",
-   "hash": "0x8113c05ddfa06f387d60fb8c997561f4ed191567905d945494de3412c4323998",
+   "hash": "0x8fb9dde0796eaca3473496b346f48aba6f3659b33ae1b054a80494bfc53aee34",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "bond_1"
   },
   {
    "who": "author",
    "call": "post_bond(\"DEMO statement pointing at an unrelated, \"The household survey microdata (CSV) an, \"https://zenodo.org/records/1188976\")",
    "value": "5",
-   "hash": "0x390ae5f74aa90b6795a81ab90e39fe7f08d3efeaa5aeec21aef404153ab35744",
+   "hash": "0x913742682af10e2537421675144bfc82037abd5ae46a6d1076ae2bf2e4e8c18a",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "bond_2"
   },
   {
    "who": "author",
    "call": "post_bond(\"DEMO statement promising open access to, \"The germline and somatic variant call f, \"https://zenodo.org/records/23050408\")",
    "value": "5",
-   "hash": "0xcbdf2ce5c372f92be394ac887c88cf876f2b9d52be1b435880d0b91c85ab29b5",
+   "hash": "0x721ce2aa8e6821d52d8e071737e55b378f434e4667b5cb69216ae3a1c5eaaf2c",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "bond_3"
   },
   {
    "who": "author",
    "call": "post_bond(\"DEMO statement that honestly declares c, \"Because they derive from patient sequen, \"https://zenodo.org/records/23050408\")",
    "value": "5",
-   "hash": "0x3e783e0354d582638950184b9d54186655df51718f3469f841f01af2f18147a3",
+   "hash": "0x715660f0c92ff7dc804d9d4c1ed3f90e41480d2548e11f5d5d01122e890eca10",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "bond_4"
   },
   {
    "who": "author",
    "call": "post_bond(\"DEMO withdrawal\", \"Contents: data/ - the cleaned, de-ident, \"https://zenodo.org/records/23041043\")",
    "value": "2",
-   "hash": "0xc05a8bf5bf599849015bfa606c7ddba47bc0f8d03000e8cc1853a257ce10fcea",
+   "hash": "0x39db20113bce4f92eb1f95e73db36c8ddc1497c934fcfed61303f752d8709bf4",
+   "status": "ACCEPTED",
+   "exec": "SUCCESS",
+   "returned": "bond_5"
+  },
+  {
+   "who": "author",
+   "call": "withdraw(\"bond_5\")",
+   "value": "0",
+   "hash": "0xf679a9514cc4da69f63893c816bc834903ccfbed0614c779b8800a5025c57905",
    "status": "ACCEPTED",
    "exec": "SUCCESS"
   },
   {
-   "who": "author",
-   "call": "withdraw(\"bond_6\")",
-   "value": "0",
-   "hash": "0x800b7a396f314e8b1053c280831bbe46cd6b60288e2285e585b6a34f35680620",
+   "who": "challenger",
+   "call": "challenge(\"bond_0\", \"too cheap\")",
+   "value": "0.1",
+   "hash": "0x259fbb3979088f6b9fd98342df403f7de918d67e4c7320b39602c00278a5bb60",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "REFUNDED: A challenge must stake at least 500000000000000000 wei (10% of the bond, min 0.1 GEN)"
+  },
+  {
+   "who": "challenger",
+   "call": "challenge(\"bond_0\", \"The statement is not honoured by the re)",
+   "value": "1",
+   "hash": "0x7724511f979fe0a19554f5b14582851918864e13db3d750718e5ed6ab11f8264",
+   "status": "ACCEPTED",
+   "exec": "SUCCESS",
+   "returned": "challenged"
   },
   {
    "who": "challenger",
    "call": "challenge(\"bond_1\", \"The statement is not honoured by the re)",
    "value": "1",
-   "hash": "0xb206df763fde032c4aa5d494613e5864ac31f3c301992a957ecb9cddb257ac56",
+   "hash": "0x0e55b659df11f2f7384c1c30e72c49fbdc7558880ab0c6782a72559afcaf5710",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "challenged"
   },
   {
    "who": "challenger",
    "call": "challenge(\"bond_2\", \"The statement is not honoured by the re)",
    "value": "1",
-   "hash": "0x7da9b88976c0fa6d0042bf9332ddc567eb9661d9df7a4ac8b370bbc8854bd4c8",
+   "hash": "0x81afe1a7d12d2a611cd4d5d8c211412361a4067afeba2e7acfc5c689696c73fc",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "challenged"
   },
   {
    "who": "challenger",
    "call": "challenge(\"bond_3\", \"The statement is not honoured by the re)",
    "value": "1",
-   "hash": "0x27aeeccf62f6a85375d2f08ffee6864267ad46fa8248a57013006de5b72714c8",
+   "hash": "0xa7394e1f38ae2202fd4548cf2cf8acac6009431740c2149218871221756e01ad",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "challenged"
   },
   {
    "who": "challenger",
    "call": "challenge(\"bond_4\", \"The statement is not honoured by the re)",
    "value": "1",
-   "hash": "0x3113618f50e9b8a2d7c3d20b9e38cb4ec7a6639f7273fec78c4652b79f47929c",
+   "hash": "0xf51d8dde8dbeedea478d6443e552eba859a6afab6296e94e63f2d59b0d8040a5",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "challenged"
   },
   {
    "who": "challenger",
-   "call": "challenge(\"bond_5\", \"The statement is not honoured by the re)",
-   "value": "1",
-   "hash": "0x3253e4692f4dbe67b358288c4da65b486149ef6d1f32718eb4850cd40dbf5a4e",
+   "call": "adjudicate(\"bond_0\")",
+   "value": "0",
+   "hash": "0x0fefe34e5bc8eac9ad5f2503c4645823858d3c285bee0a89ba01285c250b592f",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "AVAILABLE"
   },
   {
    "who": "challenger",
    "call": "adjudicate(\"bond_1\")",
    "value": "0",
-   "hash": "0x498dd7f3e2e39fe364ef9e6701f06de255052e592d54bdea81671f617e26621c",
+   "hash": "0x876afb7b1ede29eee13e63cd4c985fdcfc7ea8497d68acee9afd574cbbdd055e",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "PARTIAL"
   },
   {
    "who": "challenger",
    "call": "adjudicate(\"bond_2\")",
    "value": "0",
-   "hash": "0x3b7ff9e7bc2d929163784800f159fdabb992849e68a5c21560c36bfdb46bc3bc",
+   "hash": "0x706d1b7c591de66729be6c1bcb36fa7173aede797cc36eaab95a2fb29704778e",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "UNAVAILABLE"
   },
   {
    "who": "challenger",
    "call": "adjudicate(\"bond_3\")",
    "value": "0",
-   "hash": "0x92b99ff8f62fc1ee6a2cccc2bdfe8487a357449c4164de4882305dc4aefcfdc1",
+   "hash": "0x3c779779a2d5b8a2364fe03293702ad0ebbdc8beb5988cc1ea5efd4e9c0a9618",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "UNAVAILABLE"
   },
   {
    "who": "challenger",
    "call": "adjudicate(\"bond_4\")",
    "value": "0",
-   "hash": "0x237cc9ee95dd15f5dc68cab402f28c3ff6877621ce237dcacc51eecca06c7e73",
+   "hash": "0xa3ad16b31ea9297e7d9e2258098fde3eb28b1e423f8b6bec1a3f611105f3390b",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "AVAILABLE"
   },
   {
    "who": "challenger",
-   "call": "adjudicate(\"bond_5\")",
-   "value": "0",
-   "hash": "0x9cb84fe1147fe9757003afe8621f97c0e3192b215ba7f82046470ed01b346742",
-   "status": "ACCEPTED",
-   "exec": "SUCCESS"
-  },
-  {
-   "who": "challenger",
-   "call": "contest(\"bond_5\")",
+   "call": "contest(\"bond_4\")",
    "value": "1",
-   "hash": "0xb02107b44d7aeeb4eb70a933feb2006715de0c68f85d0804623e9ab8730636d2",
+   "hash": "0x632aac0e65e30873663be64f5ec7eca516bf4ab1fceb01f3e3ac6c7975138810",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "AVAILABLE"
   },
   {
    "who": "challenger",
+   "call": "settle(\"bond_0\")",
+   "value": "0",
+   "hash": "0xe338dfdd57861bf348e53f4a6ff7621605263e7c4a8e8be0dfac12ddcd135802",
+   "status": "ACCEPTED",
+   "exec": "SUCCESS",
+   "returned": "AVAILABLE"
+  },
+  {
+   "who": "author",
    "call": "settle(\"bond_1\")",
    "value": "0",
-   "hash": "0xf2d802cfc80313a3013704493a2dd306bb167c16f319ed9a3e4b91619189fc5b",
+   "hash": "0x43d67961fb1b57cfcbc53b1130364aef2442fb2d19597047a45ee8efb576a8ba",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "PARTIAL"
   },
   {
    "who": "author",
    "call": "settle(\"bond_2\")",
    "value": "0",
-   "hash": "0x767ca9ee20ebde4b10156ec07bf844b0315d9ba6e786c9f5d0ff09a9cae965eb",
+   "hash": "0x4e8da5611b5ca7fd92adeaaf82ba79b8ad90066649705c2e041a3842294525d7",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "UNAVAILABLE"
   },
   {
    "who": "author",
    "call": "settle(\"bond_3\")",
    "value": "0",
-   "hash": "0x7ad976c86ab42cf05123b9c72211e36e61bd27a70fcde48070abe7137e7976cf",
+   "hash": "0xe050309c71107e92ac82318911da615c8242aa9299c09b8f55303d5dd896d2b6",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "UNAVAILABLE"
   },
   {
    "who": "author",
    "call": "settle(\"bond_4\")",
    "value": "0",
-   "hash": "0x0aeecbfbf84218e74f9e5b4ab782f3c1327d4553f06e3205baed6f1286886160",
+   "hash": "0x98e4208f2e7c817f74bb4816bd143e53401fc175e58dcbd6b56fcda6f0b19fc2",
    "status": "ACCEPTED",
-   "exec": "SUCCESS"
-  },
-  {
-   "who": "author",
-   "call": "settle(\"bond_5\")",
-   "value": "0",
-   "hash": "0x4c6b10dc88dc0d564a67d18e55dae6ac276bfecbf3b83db5af90c1d5ee34cd4b",
-   "status": "ACCEPTED",
-   "exec": "SUCCESS"
+   "exec": "SUCCESS",
+   "returned": "AVAILABLE"
   }
  ]
 }

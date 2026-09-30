@@ -9,6 +9,7 @@ export type ErrorKind =
   | "wallet_missing"
   | "wallet_rejected"
   | "wrong_network"
+  | "insufficient_funds"
   | "rate_limited"
   | "rpc_unreachable"
   | "fee_estimation"
@@ -65,6 +66,7 @@ export function rawMessage(err: unknown): string {
   return [...new Set(parts)].join(" | ") || String(err);
 }
 
+const INSUFFICIENT = /insufficient (funds|balance)|exceeds (the )?balance|not enough (funds|balance)|gas \* price \+ value/i;
 const RATE_LIMIT = /rate.?limit|too many requests|\b429\b|-32005|0xf22f/i;
 const USER_REJECTED = /user (rejected|denied)|rejected the request|request rejected|\b4001\b|action_rejected/i;
 const NO_WALLET = /no ethereum provider|wallet not connected|connect your wallet|window\.ethereum/i;
@@ -94,6 +96,14 @@ export function classifyError(err: unknown, phase: Phase, txHash?: string): Data
       kind: "wallet_missing",
       message: "No wallet is connected.",
       hint: "Connect MetaMask (top right) before posting, challenging or settling a bond.",
+    });
+  }
+  if (INSUFFICIENT.test(detail)) {
+    return new DataBondError({
+      ...base,
+      kind: "insufficient_funds",
+      message: "Your wallet does not have enough GEN for this transaction.",
+      hint: "Click \"Test GEN\" in the header to get 50 GEN from the GenLayer Studio faucet, then try again.",
     });
   }
   if (code === -32005 || code === 429 || RATE_LIMIT.test(detail)) {

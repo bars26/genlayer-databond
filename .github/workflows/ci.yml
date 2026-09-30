@@ -28,3 +28,17 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python -m pytest tests/direct/ -v
+
+  frontend:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: cd frontend && npx tsc --noEmit
+      - run: cd frontend && npm run build
+        env:
+          NEXT_PUBLIC_CONTRACT_ADDRESS: "0x3f0A10DE7cF2e4E6ad5874772dF197FD45e4B4BF"

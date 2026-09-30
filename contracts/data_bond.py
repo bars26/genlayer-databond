@@ -60,6 +60,13 @@ def _parse_repository(url: str) -> tuple:
     )
 
 
+def _repository_or_none(url: str):
+    try:
+        return _parse_repository(url)
+    except gl.vm.UserError:
+        return None
+
+
 def _fetch_json(url: str):
     """(status, parsed JSON or None). Network errors count as status 0."""
     try:
@@ -200,6 +207,28 @@ class DataBond(gl.Contract):
         if amount > 0:
             _Wallet(to).emit_transfer(value=u256(amount))
 
+    def _reject(self, reason: str) -> str:
+        """Refuse a payable call without reverting, and send the GEN back.
+
+        On GenLayer the value attached to a call is credited to the contract even
+        when the call reverts, and a revert also rolls back any refund, so a
+        reverted payable call would strand the sender's GEN. Payable methods
+        therefore return "REFUNDED: <reason>" instead of raising.
+        """
+        self._pay(gl.message.sender_address, int(gl.message.value))
+        return f"REFUNDED: {reason}"
+
+    def _probe(self, source: str, ident: str) -> dict:
+        """Consensus on whether a repository resolves (no model involved)."""
+
+        def probe() -> str:
+            m = _manifest(source, ident)
+            return json.dumps(
+                {k: m[k] for k in ("reachable", "open", "file_count", "total_bytes")}, sort_keys=True
+            )
+
+        return json.loads(gl.eq_principle.strict_eq(probe))
+
     def _assess(self, bond: Bond) -> dict:
         """One consensus assessment of the repository against the statement."""
         source, ident = bond.source, _parse_repository(bond.repository)[1]
@@ -288,51 +317,52 @@ else. Your output must be only JSON without any formatting prefix or suffix.
 
     @gl.public.write.payable
     def post_bond(self, paper: str, statement: str, repository: str) -> str:
-        """Bond GEN behind a paper's data-availability statement."""
+        """Bond GEN behind a paper's data-availability statement. Returns the bond id, or "REFUNDED: ..."."""
         paper, statement, repository = self._text(paper), self._text(statement), self._text(repository)
         if not paper or len(paper) > 300:
-            raise gl.vm.UserError("paper must be a title or DOI (max 300 chars)")
+            return self._reject("paper must be a title or DOI (max 300 chars)")
         if len(statement) < 20 or len(statement) > 1500:
-            raise gl.vm.UserError("statement must be the paper's data-availability statement (20-1500 chars)")
-        source, _ident = _parse_repository(repository)
+            return self._reject("statement must be the paper's data-availability statement (20-1500 chars)")
+        parsed = _repository_or_none(repository)
+        if parsed is None:
+            return self._reject("repository must be a Zenodo record, a Figshare article or a GitHub repository URL")
         if int(gl.message.value) < _MIN_BOND:
-            raise gl.vm.UserError("A bond must be at least 1 GEN")
+            return self._reject("A bond must be at least 1 GEN")
+
+        # Registration is a real probe: a repository that does not resolve cannot be bonded.
+        probe = self._probe(parsed[0], parsed[1])
+        if not probe["reachable"]:
+            return self._reject("Could not load the repository from its public API")
 
         bond_id = f"bond_{int(self.bond_count)}"
         bond = Bond(
             id=bond_id, owner=gl.message.sender_address, paper=paper, statement=statement,
-            repository=repository, source=source, amount=u256(int(gl.message.value)),
+            repository=repository, source=parsed[0], amount=u256(int(gl.message.value)),
             state=STATE_ACTIVE, challenger=_ZERO, challenge_stake=u256(0), challenge_reason="",
             challenged_at="", verdict="", verdict_code="", ruled_at="", contested=False,
             contester=_ZERO, contest_stake=u256(0), contest_succeeded=False, defended=u256(0),
-            evidence_json="{}", history_json="[]",
+            evidence_json=json.dumps(probe, sort_keys=True), history_json="[]",
         )
-
-        # Registration is a real probe: a repository that does not resolve cannot be bonded.
-        result = self._assess(bond)
-        if not result["reachable"]:
-            raise gl.vm.UserError("Could not load the repository from its public API")
-
         self.bond_count = u256(int(self.bond_count) + 1)
         self.total_bonded = u256(int(self.total_bonded) + int(gl.message.value))
-        bond.evidence_json = json.dumps(
-            {k: result[k] for k in ("reachable", "open", "file_count", "total_bytes")}, sort_keys=True
-        )
-        self._log(bond, "posted", amount=str(int(gl.message.value)), preview=result["verdict"])
+        self._log(bond, "posted", amount=str(int(gl.message.value)))
         self.bonds[bond_id] = bond
         return bond_id
 
     @gl.public.write.payable
-    def challenge(self, bond_id: str, reason: str) -> None:
-        """Stake GEN that the statement is not honoured by the repository."""
-        bond = self._get(bond_id)
+    def challenge(self, bond_id: str, reason: str) -> str:
+        """Stake GEN that the statement is not honoured. Returns "challenged" or "REFUNDED: ..."."""
+        bond_id = self._text(bond_id)
+        if bond_id not in self.bonds:
+            return self._reject(f"No bond with id {bond_id}")
+        bond = self.bonds[bond_id]
         if bond.state != STATE_ACTIVE:
-            raise gl.vm.UserError("Only an active bond can be challenged")
+            return self._reject("Only an active bond can be challenged")
         if gl.message.sender_address == bond.owner:
-            raise gl.vm.UserError("The bond owner cannot challenge their own bond")
+            return self._reject("The bond owner cannot challenge their own bond")
         needed = max(_MIN_CHALLENGE, int(bond.amount) * _CHALLENGE_BPS // 10000)
         if int(gl.message.value) < needed:
-            raise gl.vm.UserError(f"A challenge must stake at least {needed} wei (10% of the bond, min 0.1 GEN)")
+            return self._reject(f"A challenge must stake at least {needed} wei (10% of the bond, min 0.1 GEN)")
         bond.state = STATE_CHALLENGED
         bond.challenger = gl.message.sender_address
         bond.challenge_stake = u256(int(gl.message.value))
@@ -341,6 +371,7 @@ else. Your output must be only JSON without any formatting prefix or suffix.
         bond.verdict, bond.verdict_code, bond.ruled_at = "", "", ""
         bond.contested, bond.contester, bond.contest_stake, bond.contest_succeeded = False, _ZERO, u256(0), False
         self._log(bond, "challenged", stake=str(int(gl.message.value)))
+        return "challenged"
 
     @gl.public.write
     def adjudicate(self, bond_id: str) -> str:
@@ -357,26 +388,30 @@ else. Your output must be only JSON without any formatting prefix or suffix.
 
     @gl.public.write.payable
     def contest(self, bond_id: str) -> str:
-        """The losing side may pay for one independent re-adjudication inside the window."""
-        bond = self._get(bond_id)
+        """The losing side may pay for one independent re-adjudication inside the window.
+        Returns the new verdict, or "REFUNDED: ..." if the contest is not allowed."""
+        bond_id = self._text(bond_id)
+        if bond_id not in self.bonds:
+            return self._reject(f"No bond with id {bond_id}")
+        bond = self.bonds[bond_id]
         if bond.state != STATE_RULED:
-            raise gl.vm.UserError("Only a ruled bond can be contested")
+            return self._reject("Only a ruled bond can be contested")
         if bond.contested:
-            raise gl.vm.UserError("A ruling can only be contested once")
+            return self._reject("A ruling can only be contested once")
         if self._seconds(self._now()) - self._seconds(bond.ruled_at) > _CONTEST_WINDOW_SECONDS:
-            raise gl.vm.UserError("The contest window has closed")
+            return self._reject("The contest window has closed")
         sender = gl.message.sender_address
         favour = _favours_owner(bond.verdict)
         if sender == bond.owner:
             if favour == 2:
-                raise gl.vm.UserError("The owner cannot contest a ruling in their favour")
+                return self._reject("The owner cannot contest a ruling in their favour")
         elif sender == bond.challenger:
             if favour == 0:
-                raise gl.vm.UserError("The challenger cannot contest a ruling in their favour")
+                return self._reject("The challenger cannot contest a ruling in their favour")
         else:
-            raise gl.vm.UserError("Only the bond owner or the challenger can contest")
+            return self._reject("Only the bond owner or the challenger can contest")
         if int(gl.message.value) < int(bond.challenge_stake):
-            raise gl.vm.UserError("A contest must stake at least as much as the challenge")
+            return self._reject("A contest must stake at least as much as the challenge")
 
         before = favour
         result = self._assess(bond)

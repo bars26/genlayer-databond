@@ -87,22 +87,42 @@ async function rpc(method, params) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = [];
 
+const TRANSIENT = /rate limit|Unexpected token '<'|not valid JSON|fetch failed|ECONNRESET|socket hang up|50[234]/i;
+
 async function write(c, who, functionName, args, value = 0n) {
+  const from = c.account.address;
   for (let attempt = 1; ; attempt++) {
+    const nonceBefore = BigInt(await rpc("eth_getTransactionCount", [from, "latest"]));
     try {
-      const hash = await c.writeContract({ address: CONTRACT, functionName, args, value });
+      let hash;
+      try {
+        hash = await c.writeContract({ address: CONTRACT, functionName, args, value });
+      } catch (err) {
+        // The RPC sometimes answers a send with an HTML error page. Only resend if the
+        // nonce did not move; otherwise the first send went through and we pick it up.
+        if (!TRANSIENT.test(String(err?.message || err))) throw err;
+        await sleep(15000);
+        const nonceAfter = BigInt(await rpc("eth_getTransactionCount", [from, "latest"]));
+        if (nonceAfter === nonceBefore) throw err;
+        const txs = await rpc("sim_getTransactionsForAddress", [from]);
+        hash = txs.filter((t) => (t.from_address || "").toLowerCase() === from.toLowerCase()).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0].hash;
+        console.log(`  send answered with an error page but the tx exists: ${hash}`);
+      }
       const receipt = await c.waitForTransactionReceipt({ hash, status: "ACCEPTED", retries: 60, interval: 5000 });
       const lr = receipt?.consensus_data?.leader_receipt;
-      const exec = (Array.isArray(lr) ? lr[0] : lr)?.execution_result ?? "?";
-      const row = { who, call: `${functionName}(${args.map((a) => JSON.stringify(a).slice(0, 40)).join(", ")})`, value: String(value / 10n ** 16n / 100n), hash, status: receipt.statusName ?? receipt.status_name ?? "ACCEPTED", exec };
+      const first = Array.isArray(lr) ? lr[0] : lr;
+      const exec = first?.execution_result ?? "?";
+      let returned = first?.result?.payload?.readable;
+      try { returned = JSON.parse(returned); } catch {}
+      const row = { who, call: `${functionName}(${args.map((a) => JSON.stringify(a).slice(0, 40)).join(", ")})`, value: (Number(value) / 1e18).toString(), hash, status: receipt.statusName ?? receipt.status_name ?? "ACCEPTED", exec, returned: typeof returned === "string" ? returned : undefined };
       log.push(row);
-      console.log(`${row.who.padEnd(10)} ${row.call.padEnd(58)} ${row.status.padEnd(9)} ${row.exec.padEnd(7)} ${hash}`);
+      console.log(`${row.who.padEnd(10)} ${row.call.padEnd(58)} ${row.status.padEnd(9)} ${row.exec.padEnd(7)} ${hash}${row.returned?.startsWith?.("REFUNDED") ? "  -> " + row.returned : ""}`);
       if (exec !== "SUCCESS") throw new Error(`${functionName} executed with ${exec}`);
       return receipt;
     } catch (err) {
       const msg = String(err?.message || err);
-      if (/rate limit/i.test(msg) && attempt < 5) {
-        console.log(`  rate limited, waiting ${15 * attempt}s`);
+      if (TRANSIENT.test(msg) && attempt < 5) {
+        console.log(`  transient RPC error (${msg.slice(0, 60)}), waiting ${15 * attempt}s`);
         await sleep(15000 * attempt);
         continue;
       }
@@ -153,7 +173,11 @@ await write(O, "author", "post_bond", ["DEMO withdrawal", CASES[0].statement, NE
 const withdrawId = `bond_${firstId + CASES.length}`;
 await write(O, "author", "withdraw", [withdrawId]);
 
+// A challenge below the 10% minimum is refused and refunded (GenLayer keeps a reverted call's value,
+// so the contract returns "REFUNDED: ..." and sends the stake back instead of raising).
 console.log("");
+await write(C, "challenger", "challenge", [ids["honest"], "too cheap"], GEN / 10n);
+
 for (const c of CASES) {
   await write(C, "challenger", "challenge", [ids[c.key], "The statement is not honoured by the repository."], 1n * GEN);
 }
