@@ -42,6 +42,9 @@ with every transaction hash in [`docs/REPRODUCTION.md`](docs/REPRODUCTION.md) an
 | Restricted, "open" claim | Promises unrestricted download of a restricted-access Zenodo record | **Unavailable** | Whole bond to the challenger |
 | Restricted, honest | Same restricted record, statement honestly declares controlled access on request | **Available** | Challenger contests; the independent re-ruling agrees, the contest stake goes to the author |
 
+After settlement the author's wallet went from 100 to **80.5 GEN** and the challenger's from 100 to **109.5 GEN**, exactly the
+contract's arithmetic, with the contract holding the 10 GEN of the two surviving bonds. Two independent runs gave the same five rulings.
+
 The DEMO statements are written for the test and labelled as such on chain; they do not claim to be what any real author
 wrote. The honest case uses the depositor's own description.
 
