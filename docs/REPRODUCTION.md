@@ -66,6 +66,20 @@ Balances read with `eth_getBalance` after the transfer transactions finalized.
 | 23 | author | `settle("bond_3")` |  | UNAVAILABLE | [`0xe050309c…`](https://explorer-studio.genlayer.com/tx/0xe050309c71107e92ac82318911da615c8242aa9299c09b8f55303d5dd896d2b6) | ACCEPTED | SUCCESS |
 | 24 | author | `settle("bond_4")` |  | AVAILABLE | [`0x98e4208f…`](https://explorer-studio.genlayer.com/tx/0x98e4208f2e7c817f74bb4816bd143e53401fc175e58dcbd6b56fcda6f0b19fc2) | ACCEPTED | SUCCESS |
 
+## From the production UI with MetaMask
+
+After the scripted run, the project owner's MetaMask wallet (`0x4F80B5c475fcEd34fc9A07FfCcF39E1Adc1406bf`) ran a full
+challenge through https://databond-bars26.vercel.app on 2026-09-30:
+
+| Step in the UI | Tx | Result |
+|---|---|---|
+| **Challenge** bond_0 with the suggested 0.5 GEN | [`0x40b335d7…`](https://explorer-studio.genlayer.com/tx/0x40b335d7b39d7a3ced991f51bec4ba4710d2f22179e58b118ed7dd2c2619c5a0) | FINALIZED, SUCCESS, returned `challenged` |
+| **Adjudicate now** | [`0x8bc2d9d7…`](https://explorer-studio.genlayer.com/tx/0x8bc2d9d7be5ffd579725f1c7b50f4cc6b5691c24cf8b1687e435db216003046e) | FINALIZED, SUCCESS, ruling `AVAILABLE` |
+| **Accept ruling and settle** | [`0x52aa1abd…`](https://explorer-studio.genlayer.com/tx/0x52aa1abd712c855a65fe1582d015446902a5004029ddd23898af374cf43bfb28) | FINALIZED, SUCCESS; the author's wallet went from 80.5 to **81.0 GEN** |
+
+bond_0 is still active and now shows `defended: 2`; the contract still holds exactly the 10 GEN of the two live bonds.
+The **Test GEN** button was also used from that wallet: both faucet transfers landed (`value_credited: true`).
+
 ## Two GenLayer money pitfalls this run proves are handled
 
 1. **Wallet payouts use an external EVM transfer** (`gl.evm.contract_interface` + `emit_transfer`). With
