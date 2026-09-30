@@ -201,6 +201,7 @@ export function useBondWrite() {
     onSuccess: ({ id, txHash, kind }) => {
       if (contract && id) mergeFreshBond(qc, contract, id);
       qc.invalidateQueries({ queryKey: ["myBonds"] });
+      qc.invalidateQueries({ queryKey: ["genBalance"] });
       success(kind === "post" ? `Bond ${id} posted` : `${LABEL[kind]} confirmed`, {
         description: `Tx ${txHash.slice(0, 10)}... is ACCEPTED by validator consensus.`,
         duration: 8000,
